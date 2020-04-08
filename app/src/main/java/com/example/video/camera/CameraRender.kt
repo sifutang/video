@@ -23,9 +23,9 @@ class CameraRender(context: Context) {
     private val vertexArray = VertexArray(vertexData)
     private var cameraShaderProgram = CameraShaderProgram(context)
 
-    fun drawTexture(transformMatrix: FloatArray, oesTextureId: Int) {
+    fun drawTexture(mvpMatrix: FloatArray, textureMatrix: FloatArray, oesTextureId: Int) {
         cameraShaderProgram.useProgram()
-        cameraShaderProgram.setUniform(transformMatrix, oesTextureId)
+        cameraShaderProgram.setUniform(mvpMatrix, textureMatrix, oesTextureId)
         val positionLoc = cameraShaderProgram.getPositionAttributeLoc()
         val coordinateLoc = cameraShaderProgram.getTextureCoordinateAttributeLoc()
         vertexArray.setVertexAttributePointer(

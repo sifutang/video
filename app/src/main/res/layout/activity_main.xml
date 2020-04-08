@@ -19,15 +19,41 @@
         android:id="@+id/play"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         android:text="播放"/>
+
+    <Button
+        android:id="@+id/stop"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintLeft_toRightOf="@+id/play"
+        app:layout_constraintTop_toTopOf="parent"
+        android:text="暂停"/>
+
+    <Button
+        android:id="@+id/convert"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintLeft_toRightOf="@+id/stop"
+        app:layout_constraintTop_toTopOf="parent"
+        android:text="转换"/>
+
+    <Button
+        android:id="@+id/play_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        android:text="00:00"/>
+
 
     <SeekBar
         android:id="@+id/video_seek_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:layout_constraintTop_toBottomOf="@+id/play"/>
+        app:layout_constraintTop_toBottomOf="@+id/play"
+        app:layout_constraintLeft_toRightOf="@+id/play_time"/>
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

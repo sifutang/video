@@ -13,6 +13,7 @@ class CameraShaderProgram(context: Context) :
     private var uTextureMatrixLocation = -1
     private var uTextureSamplerLocation = -1
     private var uIdentityLocation = -1
+    private var uMvpMatrixLocation = -1
 
     // Attribute locations
     private var aPositionLocation = -1
@@ -29,15 +30,17 @@ class CameraShaderProgram(context: Context) :
         uTextureMatrixLocation = GLES20.glGetUniformLocation(programId, "u_TextureMatrix")
         uTextureSamplerLocation = GLES20.glGetUniformLocation(programId, "u_TextureSampler")
         uIdentityLocation = GLES20.glGetUniformLocation(programId, "identity")
+        uMvpMatrixLocation = GLES20.glGetUniformLocation(programId, "u_MvpMatrix")
     }
 
     fun setProgress(progress: Float) {
         identity = progress
     }
 
-    fun setUniform(matrix: FloatArray, textureId: Int) {
+    fun setUniform(mvpMatrix: FloatArray, textureMatrix: FloatArray, textureId: Int) {
+        GLES20.glUniformMatrix4fv(uMvpMatrixLocation, 1, false, mvpMatrix, 0)
         GLES20.glUniformMatrix4fv(uTextureMatrixLocation,
-                1, false, matrix, 0)
+                1, false, textureMatrix, 0)
         GLES20.glUniform1f(uIdentityLocation, identity)
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
