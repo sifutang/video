@@ -22,7 +22,10 @@ import javax.microedition.khronos.opengles.GL10
 
 class MainActivity : AppCompatActivity(),
     View.OnClickListener,
-    GLSurfaceView.Renderer, SurfaceTexture.OnFrameAvailableListener, MediaPlayer.OnVideoSizeChangedListener {
+    GLSurfaceView.Renderer,
+    SurfaceTexture.OnFrameAvailableListener,
+    MediaPlayer.OnVideoSizeChangedListener,
+    MediaPlayer.OnCompletionListener {
 
     companion object {
         private const val TAG = "MainActivity"
@@ -88,6 +91,7 @@ class MainActivity : AppCompatActivity(),
         mediaPlayer.release()
         surfaceTexture?.release()
         glSurfaceView.onPause()
+        currentPosition = 0
     }
 
     override fun onClick(v: View?) {
@@ -133,6 +137,7 @@ class MainActivity : AppCompatActivity(),
         mediaPlayer = MediaPlayer()
         mediaPlayer.setDataSource(assetFileDescriptor)
         mediaPlayer.setOnVideoSizeChangedListener(this)
+        mediaPlayer.setOnCompletionListener(this)
         val surface = Surface(surfaceTexture)
         mediaPlayer.setSurface(surface)
         surface.release()
@@ -196,5 +201,9 @@ class MainActivity : AppCompatActivity(),
             }
             mediaMetadataRetriever.release()
         }
+    }
+
+    override fun onCompletion(mp: MediaPlayer?) {
+        currentPosition = 0
     }
 }
