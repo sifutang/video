@@ -1,10 +1,9 @@
 package com.example.video
 
 import android.content.res.AssetFileDescriptor
-import android.graphics.Point
 import android.graphics.SurfaceTexture
+import android.media.MediaMetadataRetriever
 import android.media.MediaPlayer
-import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.opengl.Matrix
 import android.os.Bundle
@@ -12,6 +11,7 @@ import android.util.Log
 import android.view.Surface
 import android.view.View
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.SeekBar
 import androidx.appcompat.app.AppCompatActivity
 import com.example.video.camera.CameraRender
@@ -22,7 +22,7 @@ import javax.microedition.khronos.opengles.GL10
 
 class MainActivity : AppCompatActivity(),
     View.OnClickListener,
-    GLSurfaceView.Renderer, SurfaceTexture.OnFrameAvailableListener{
+    GLSurfaceView.Renderer, SurfaceTexture.OnFrameAvailableListener, MediaPlayer.OnVideoSizeChangedListener {
 
     companion object {
         private const val TAG = "MainActivity"
@@ -31,6 +31,7 @@ class MainActivity : AppCompatActivity(),
     private lateinit var glSurfaceView: GLSurfaceView
     private lateinit var videoSeekBar: SeekBar
     private lateinit var playTimeView: Button
+    private lateinit var videoThumbnailView: ImageView
 
     private lateinit var mediaPlayer: MediaPlayer
     private lateinit var assetFileDescriptor: AssetFileDescriptor
@@ -48,6 +49,7 @@ class MainActivity : AppCompatActivity(),
     private var sy = 1f
 
     private var videoGrayConvertProgress = 0f
+    private var currentPosition = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,6 +67,7 @@ class MainActivity : AppCompatActivity(),
 
         videoSeekBar = findViewById(R.id.video_seek_bar)
         playTimeView = findViewById(R.id.play_time)
+        videoThumbnailView = findViewById(R.id.video_thumbnail)
     }
 
     override fun onResume() {
@@ -90,6 +93,7 @@ class MainActivity : AppCompatActivity(),
     override fun onClick(v: View?) {
         when(v?.id) {
             R.id.play -> {
+                videoThumbnailView.visibility = View.INVISIBLE
                 if (!mediaPlayer.isPlaying) {
                     mediaPlayer.start()
                 }
@@ -109,9 +113,6 @@ class MainActivity : AppCompatActivity(),
         surfaceTexture?.updateTexImage()
         surfaceTexture?.getTransformMatrix(transform)
 
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-        GLES20.glClearColor(255f, 255f, 255f, 1f)
-        GLES20.glViewport(0, 0, renderWidth, renderHeight)
         cameraRender?.setProgress(videoGrayConvertProgress)
         Matrix.setIdentityM(mvpMatrix, 0)
         Matrix.scaleM(mvpMatrix, 0, sx, sy, 1f)
@@ -120,6 +121,8 @@ class MainActivity : AppCompatActivity(),
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
         Log.d(TAG, "onSurfaceChanged: w = $width, h = $height")
+        renderWidth = width
+        renderHeight = height
     }
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
@@ -129,42 +132,30 @@ class MainActivity : AppCompatActivity(),
 
         mediaPlayer = MediaPlayer()
         mediaPlayer.setDataSource(assetFileDescriptor)
+        mediaPlayer.setOnVideoSizeChangedListener(this)
         val surface = Surface(surfaceTexture)
         mediaPlayer.setSurface(surface)
         surface.release()
 
         try {
-            mediaPlayer.prepare()
+            mediaPlayer.prepareAsync()
         } catch (exp: Exception) {
             exp.printStackTrace()
         }
 
-        mediaPlayer.setOnVideoSizeChangedListener { mp, width, height ->
-            val display = windowManager.defaultDisplay
-            val point = Point()
-            display.getSize(point)
-            renderWidth = point.x
-            renderHeight = point.y
-
-            sx = 1f * width / renderWidth
-            sy = 1f * height / renderHeight
-
-            Log.d(TAG, "video size: w = $width, h = $height, renderWidth = $renderWidth, renderHeight = $renderHeight, sx = $sx, sy = $sy")
-
-            // before start, we draw video frame once.
-            glSurfaceView.requestRender()
-        }
-
-        videoSeekBar.max = mediaPlayer.duration
         cameraRender = CameraRender(this)
         Log.d(TAG, "onSurfaceCreated: ")
     }
 
     override fun onFrameAvailable(surfaceTexture: SurfaceTexture?) {
         glSurfaceView.requestRender()
-        val currentPosition = mediaPlayer.currentPosition
-        videoSeekBar.progress = currentPosition
-        playTimeView.text = calculateTime(currentPosition)
+        val position = mediaPlayer.currentPosition
+        // 使用prepareAsync，有些视频最后一帧的currentPosition变小了，看起来像是最后一点时间的长度，而不是时间戳
+        if (position > currentPosition) {
+            currentPosition = position
+            videoSeekBar.progress = currentPosition
+            playTimeView.text = calculateTime(currentPosition)
+        }
     }
 
     private fun calculateTime(timeMs: Int): String {
@@ -177,5 +168,33 @@ class MainActivity : AppCompatActivity(),
 
     private fun alignment(time: Int): String {
         return if (time > 9) "$time" else "0$time"
+    }
+
+    override fun onVideoSizeChanged(mp: MediaPlayer?, width: Int, height: Int) {
+        videoSeekBar.max = mediaPlayer.duration
+
+        sx = 1f * width / renderWidth
+        sy = 1f * height / renderHeight
+
+        Log.d(TAG, "onVideoSizeChanged: w = $width, h = $height, renderWidth = $renderWidth, renderHeight = $renderHeight, sx = $sx, sy = $sy")
+
+        // 首次播放的时候，有些视频video size的宽高有几个像素的变动
+        val isPlaying = mediaPlayer.isPlaying
+        Log.d(TAG, "onVideoSizeChanged: playing? = $isPlaying")
+        if (!isPlaying) {
+            val mediaMetadataRetriever = MediaMetadataRetriever()
+            mediaMetadataRetriever.setDataSource(
+                    assetFileDescriptor.fileDescriptor,
+                    assetFileDescriptor.startOffset,
+                    assetFileDescriptor.length
+            )
+            val bitmap = mediaMetadataRetriever.getFrameAtTime(0)
+            if (bitmap != null) {
+                videoThumbnailView.visibility = View.VISIBLE
+                videoThumbnailView.setImageBitmap(bitmap)
+                Log.d(TAG, "onVideoSizeChanged: bitmap w = ${bitmap.width}, h = ${bitmap.height}")
+            }
+            mediaMetadataRetriever.release()
+        }
     }
 }
